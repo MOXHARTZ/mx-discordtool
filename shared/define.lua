@@ -1,3 +1,0 @@
----@class GetUserData
----@yield identifier string
----@return {banned: boolean, whitelisted: boolean, job: string, charinfo: string, accounts: string, group: string, armor: number, health: number, identifier: string, status: string, ping: number, discord: string, inventory: string}
