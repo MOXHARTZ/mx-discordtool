@@ -61,9 +61,7 @@ end)
 ---@param owner string The owner of coming the discord api
 ---@param data table The data to send to the discord api
 function SendData(owner, data)
-    print('data', Dump(data))
     local url = SEND_URL .. GUILD .. '/' .. owner
-    print('url', url)
     PerformHttpRequest(url, function(statusCode, text, headers)
         print(statusCode)
         print(text)
