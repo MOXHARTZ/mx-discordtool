@@ -1,4 +1,4 @@
---- @param identifier string
+--- @param identifier string 
 ---@return {banned: boolean, whitelisted: boolean, job: string, charinfo: table, accounts: table, group: string, identifier: string, inventory: table}
 function GetUserData(identifier)
     local result = MySQL.prepare.await('SELECT firstname, lastname, accounts, job, inventory, `group` FROM users WHERE identifier = ?', {
