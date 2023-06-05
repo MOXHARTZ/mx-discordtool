@@ -1,21 +1,54 @@
---- @param identifier string 
----@return {banned: boolean, whitelisted: boolean, job: string, charinfo: table, accounts: table, group: string, identifier: string, inventory: table}
+ESX = exports['es_extended']:getSharedObject()
+
+function GetPlayerAccounts(player)
+    local accounts = player.getAccounts()
+    local result = {}
+    for _, account in ipairs(accounts) do
+        table.insert(result, {
+            name = account.name,
+            money = account.money
+        })
+    end
+    return result
+end
+
+--- @param identifier string
+---@return {banned: boolean, whitelisted: boolean, job: string, charinfo: table, accounts: table, group: string, identifier: string, inventory: table, status: 'online' | 'offline'}
 function GetUserData(identifier)
-    local result = MySQL.prepare.await('SELECT firstname, lastname, accounts, job, inventory, `group` FROM users WHERE identifier = ?', {
+    identifier = SetIdentifierToBase(identifier)
+    local str = [[
+        SELECT firstname, lastname, accounts, job, inventory, `group` FROM users WHERE identifier = ?
+    ]]
+    local player = ESX.GetPlayerFromIdentifier(identifier)
+    if player then
+        str = [[
+            SELECT firstname, lastname FROM users WHERE identifier = ?
+        ]]
+    end
+     
+    local result = MySQL.prepare.await(str, {
         identifier
     })
 
     if not result then return {} end
-    result.accounts = json.decode(result.accounts)
-    result.inventory = json.decode(result.inventory)
+
+    if player then
+        result.accounts = GetPlayerAccounts(player)
+        result.job = player.getJob().name
+        result.inventory = player.getInventory()
+        result.group = player.getGroup()
+    else
+        result.accounts = json.decode(result.accounts)
+        result.inventory = json.decode(result.inventory)
+    end
+
     local charinfo = {
         firstname = result.firstname,
         lastname = result.lastname
     }
 
-    -- TODO: Implement this
-    local banned = false
-    local whitelisted = false
+    local banned = CheckPlayerIsBanned(identifier)
+    local whitelisted = CheckPlayerIsWhitelisted(identifier)
 
     return {
         charinfo = charinfo,
@@ -25,25 +58,34 @@ function GetUserData(identifier)
         banned = banned,
         group = result.group,
         whitelisted = whitelisted,
-        inventory = result.inventory
+        inventory = result.inventory,
+        status = player and 'online' or 'offline'
     }
 end
 
 --- @param data table
----@return {banned: boolean, whitelisted: boolean, job: string, charinfo: table, accounts: table, group: string, identifier: string, status: 'offline', inventory: table}
 function GetUserById(data)
-    local resolve = GetUserData(data.data.identifier)
-    resolve.status = 'offline'
-    ---@diagnostic disable-next-line: return-type-mismatch
+    local resolve = GetUserData(data.identifier)
     return resolve
 end
-
-CreateThread(function()
-    local user = GetUserData('0:246a9bdb081228f5ff60af41b6b471bf1d382dd3')
-    -- Warn('GetUserData', Dump(user))
-end)
-
 
 function GetUser()
     return {}
 end
+
+--- @param source string
+---@return string
+function GetFrameworkIdentifier(source)
+    local player = ESX.GetPlayerFromId(source)
+    return player?.identifier
+end
+
+RegisterCommand('checkToken', function(source, args)
+    local tokens = GetPlayerTokens(source)
+    for _, token in ipairs(tokens) do
+        print('all:', token)
+    end
+    local token = GetPlayerToken(source, 1)
+
+    print(token)
+end, false)
