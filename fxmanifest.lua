@@ -1,8 +1,15 @@
 fx_version 'cerulean'
-games { 'gta5' }
+game 'gta5'
 author 'MOXHA'
 lua54 'yes'
+
+name 'MX Discord Tool'
+description 'A Tool for the MX BOT'
+version '1.0.0'
+repository 'https://github.com/MOXHARTZ/mx-discordtool'
+
 shared_scripts {
+    '@ox_lib/init.lua',
     'shared/*.lua'
 }
 
@@ -15,4 +22,9 @@ server_scripts {
     'bridge/server.lua',
     'index.js',
     'server/*.lua',
+}
+
+dependencies {
+    'oxmysql',
+    'ox_lib'
 }

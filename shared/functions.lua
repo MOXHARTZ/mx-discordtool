@@ -19,3 +19,10 @@ function Warn(...)
     local str = unpackStr(...)
     print(message .. '^4' .. str .. '^0')
 end
+
+string.split = function(str, sep)
+    local sep, fields = sep or ':', {}
+    local pattern = string.format('([^%s]+)', sep)
+    str:gsub(pattern, function(c) fields[#fields + 1] = c end)
+    return fields
+end

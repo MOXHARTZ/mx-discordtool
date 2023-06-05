@@ -7,7 +7,8 @@ config = {
     whitelist               = true,                 -- Enable whitelist
     notAllowedWhitelistText = [[
         You are not whitelisted on this server.
-    ]]
+    ]],
+    webhook                 = '', -- Discord webhook for the screenshots
 }
 
 exports('GetConfig', function()

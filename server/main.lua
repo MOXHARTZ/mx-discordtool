@@ -4,9 +4,52 @@
 --- @field type TypeEnum The type of the data
 --- @field data table It's coming from discord
 
-local LISTENER_URL = 'http://localhost:3000/listener/getWaitingListeners/'
-local SEND_URL = 'http://localhost:3000/listener/'
-local GUILD = config.guild
+local convar = GetConvar("mysql_connection_string", "")
+
+local function parseUri(connectionString)
+    local uri = {}
+    local str = connectionString:sub(9)
+    local split = str:split('?')
+    local uriStr = split[1]
+    local paramsStr = split[2]
+    local uriSplit = uriStr:split('@')
+    local auth = uriSplit[1]
+    local host = uriSplit[2]
+    local authSplit = auth:split(':')
+    local user = authSplit[1]
+    local password = authSplit[2]
+    local hostSplit = host:split('/')
+    local hostSplit2 = hostSplit[1]:split(':')
+    local hostName = hostSplit2[1]
+    local port = hostSplit2[2]
+    local database = hostSplit[2]
+    uri.user = user
+    uri.password = password
+    uri.hostName = hostName
+    uri.port = port
+    uri.database = database
+    if paramsStr then
+        local paramsSplit = paramsStr:split('&')
+        for _, param in ipairs(paramsSplit) do
+            local paramSplit = param:split('=')
+            local key = paramSplit[1]
+            local value = paramSplit[2]
+            uri[key] = value
+        end
+    end
+    return uri
+end
+
+DATABASE_NAME = convar:match("database=(.-);")
+
+if not DATABASE_NAME and convar:match("mysql://") then
+    local uri = parseUri(convar)
+    DATABASE_NAME = uri.database
+end
+
+if not DATABASE_NAME then
+    error('Failed to get database name from mysql_connection_string convar. Please check your mysql_connection_string convar. You can reference here: https://overextended.dev/oxmysql/issues')
+end
 
 local function getEnumName(value)
     for k, v in pairs(TypeEnum) do
@@ -32,64 +75,30 @@ end
 
 exports('GetRequestData', getRequestData)
 
--- ---@param data Response
--- local function progressAll(data)
---     if not next(data) or #data == 0 then return end
---     for _, v in ipairs(data) do
---         enumToFunction(v.type, v.owner, v)
---     end
--- end
-
--- local function listener()
---     Wait(1000)
---     local url = LISTENER_URL .. GUILD
---     ---@param data Response
---     PerformHttpRequest(url, function(statusCode, data, headers)
---         if not data then return Warn('Failed to get data from the discord api') end
---         if statusCode ~= 200 then return Warn('Failed to get data from the discord api') end
---         if data == 'null' then return end
---         if not data then return Warn('Failed to decode data from the discord api') end
---         data = type(data) == 'string' and json.decode(data) or data
---         progressAll(data)
---     end, 'GET', json.encode({}), { ['Content-Type'] = 'application/json' })
--- end
-
--- CreateThread(function()
---     while true do
---         Wait(1000)
---         listener()
---     end
--- end)
-
----@param owner string The owner of coming the discord api
----@param data table The data to send to the discord api
-function SendData(owner, data)
-    local url = SEND_URL .. GUILD .. '/' .. owner
-    PerformHttpRequest(url, function(statusCode, text, headers)
-        print(statusCode)
-        print(text)
-        print(headers)
-    end, 'PUT', json.encode(data), { ['Content-Type'] = 'application/json' })
-end
-
 ---@param player string The player server id to get the identifier from
 ---@param identifierType string | table The type of the identifier to get (discord, steam, license, xbl, live, fivem)
 ---@return string | table | nil The identifier(s)
 function GetPlayerIdentifierFromType(player, identifierType)
-    local data = {}
+    local data
     local typeOf = type(identifierType)
     if typeOf == 'string' then identifierType = { identifierType } end
+    if typeOf == 'table' then data = {} end
     for _, v in ipairs(identifierType) do
         local identifiers = GetPlayerIdentifiers(player)
         for _, identifier in ipairs(identifiers) do
             if identifier:find(v) then
-                data[v] = identifier
-                if typeOf == 'string' and v == identifierType then return identifier end
+                if typeOf == 'table' then
+                    data[v] = identifier
+                end
+                if typeOf == 'string' and v == identifierType[1] then 
+                    data = identifier
+                end
                 break
             end
         end
     end
-    return next(data) and data or nil
+    if type(data) == 'table' and not next(data) then return nil end
+    return data
 end
 
 ---@param player string The player server id to get the discord id from
@@ -103,16 +112,17 @@ function GetPlayerDiscordId(player)
     return discordId
 end
 
----@param discordId string The discord id to get the player from
+---@param unknownId string The unknown id to get the player server id from (must be discord or identifier or source)
 ---@return string | nil The player server id
-function GetPlayerFromDiscordId(discordId)
-    discordId = discordId:gsub('discord:', '')
+function GetPlayerFromUnknownId(unknownId)
+    unknownId = unknownId:gsub('discord:', '')
     local players = GetPlayers()
     for _, player in ipairs(players) do
+        if player == unknownId then return player end
+        local identifier = Framework:GetIdentifier(player)
+        if identifier == unknownId then return player end
         local playerDiscordId = GetPlayerDiscordId(player)
-        if playerDiscordId == discordId then
-            return player
-        end
+        if playerDiscordId == unknownId then return player end
     end
     return nil
 end
@@ -149,9 +159,32 @@ end
 ---@param identifier string The identifier to set to base (important for using the multicharacter)
 ---@return string The identifier without the multicharacter code (ex: 1:123456789 -> 123456789)
 function SetIdentifierToBase(identifier)
-    identifier = identifier:gsub(':%d+', '')
-    identifier = identifier:gsub(':', '')
+    local split = identifier:split(':')
+    if #split > 1 then
+        identifier = split[2]
+    end
     return identifier
+end
+
+--- @param data {identifier: string}
+--- @return {banned: boolean, whitelisted: boolean, job: string, charinfo: table, accounts: table, group: string, identifier: string, inventory: table, status: 'online' | 'offline'}
+function GetUserById(data)
+    local resolve = Framework:GetUserData(data.identifier)
+    return resolve
+end
+
+---@param data {discord: string, character: number} 
+---@return table
+function GetUserByDiscord(data)
+    local source = GetPlayerFromUnknownId(data.discord)
+    if not source then 
+        return {
+            errorCode = 301 -- User is not in the server
+        } 
+    end
+    local identifier = Framework:GetIdentifier(source)
+    local resolve = Framework:GetUserData(identifier)
+    return resolve
 end
 
 ---@param identifier string The identifier to get the tokens from
@@ -163,7 +196,7 @@ end
 ---@param tokens table The tokens
 ---@param duration number The duration of the ban
 ---@param reason string The reason of the ban
-function Ban(identifier, fivem, license, xbl, live, discord, tokens, duration, reason)
+local function banSql(identifier, fivem, license, xbl, live, discord, tokens, duration, reason)
     identifier = identifier or ''
     fivem = fivem or ''
     license = license or ''
@@ -265,15 +298,20 @@ function CheckPlayerIsBanned(identifier)
     local banList = MySQL.prepare.await('SELECT id FROM mx_banlist WHERE identifier = ?', {
         identifier
     })
-    return banList and true or false
+    return banList ~= nil
 end
 
-function CheckPlayerIsWhitelisted(identifier)
-    identifier = SetIdentifierToBase(identifier)
-    local whitelist = MySQL.prepare.await('SELECT id FROM mx_whitelist WHERE identifier = ?', {
-        identifier
+---@param identifiers table {license: string, steam: string}
+---@return boolean If the player is whitelisted
+function CheckPlayerIsWhitelisted(identifiers)
+    if identifiers.license then
+        identifiers.license = SetIdentifierToBase(identifiers.license)
+    end
+    local whitelist = MySQL.prepare.await('SELECT identifier FROM mx_whitelist WHERE identifier = ? OR identifier = ?', {
+        identifiers.license,
+        identifiers.steam or '-1'
     })
-    return whitelist and true or false
+    return whitelist ~= nil 
 end
 
 local function onPlayerConnecting(name, setKickReason, deferrals)
@@ -287,14 +325,14 @@ local function onPlayerConnecting(name, setKickReason, deferrals)
         'license',
         'xbl',
         'live',
-        'fivem'
+        'fivem',
+        'steam'
     })
     if not identifiers then 
         deferrals.done('We can\'t get your identifiers, please try again later. If the problem persists, contact the server owner.')
         return
     end
 
-    
     deferrals.update('We are checking if you are banned, please wait.')
     Wait(1000)
 
@@ -303,11 +341,9 @@ local function onPlayerConnecting(name, setKickReason, deferrals)
         deferrals.done('We can\'t get your tokens, please try again later. If the problem persists, contact the server owner.')
         return
     end
+
     local banList = MySQL.query.await('SELECT * FROM mx_banlist')
-    if not banList or #banList == 0 then
-        deferrals.done()
-        return
-    end
+    if not banList or #banList == 0 then goto skipBanCheck end
 
     Wait(0)
 
@@ -334,6 +370,8 @@ local function onPlayerConnecting(name, setKickReason, deferrals)
         end
     end
 
+    ::skipBanCheck::
+
     Wait(100)
 
     if not config.whitelist then return deferrals.done() end
@@ -342,8 +380,12 @@ local function onPlayerConnecting(name, setKickReason, deferrals)
 
     Wait(1000)
     
-    local whitelisted = CheckPlayerIsWhitelisted(identifiers?.license)
-    
+    -- Hmm i don't know how to i get rockstar license from the api, so i'm using the steam id for the whitelist.
+    local whitelisted = CheckPlayerIsWhitelisted({
+        license = identifiers?.license,
+        steam = identifiers?.steam
+    })
+
     if not whitelisted then
         deferrals.done(config.notAllowedWhitelistText)
         return
@@ -356,8 +398,11 @@ end
 
 AddEventHandler('playerConnecting', onPlayerConnecting)
 
-function BanPlayer(source, reason, duration)
-    local frameworkIdentifier = GetFrameworkIdentifier(source)
+---@param source string The player server id to get the framework identifier from
+---@param reason string The reason of the ban
+---@param duration number The duration of the ban
+local function ban(source, reason, duration)
+    local frameworkIdentifier = Framework:GetIdentifier(source)
     if not frameworkIdentifier then return Warn('Failed to get framework identifier from source :' .. source) end
     local identifiers = GetPlayerIdentifierFromType(source, {
         'discord',
@@ -369,10 +414,180 @@ function BanPlayer(source, reason, duration)
     if not identifiers then return Warn('Failed to get identifier from source :' .. source) end
     local tokens = GetTokensFromPlayer(source)
     if not tokens then return Warn('Failed to get tokens from source :' .. source) end
-    Ban(frameworkIdentifier, identifiers?.fivem, identifiers?.license, identifiers?.xbl, identifiers?.live, identifiers.discord, tokens, duration, reason)
-    -- DropPlayer(source, reason)
+    banSql(frameworkIdentifier, identifiers?.fivem, identifiers?.license, identifiers?.xbl, identifiers?.live, identifiers.discord, tokens, duration, reason)
+    DropPlayer(source, reason)
 end
 
-RegisterCommand('testBan', function(source, args)
-    BanPlayer(source, 'test', os.time() + 60 * 60 * 24 * 7)
-end, false)
+exports('Ban', ban)
+
+---@param data {identifier: string, reason: string, duration: string | number} The data to ban the user
+---@return string | table The error code or success
+function BanUser(data)
+    local source = GetPlayerFromUnknownId(data.identifier)
+    if not source then 
+        return {
+            errorCode = 301 -- User is not in the server
+        }
+    end
+    local duration = tonumber(data.duration)
+    if not duration then return 'Duration is not a number!' end
+    duration = os.time() + duration * 60 * 60
+    ban(source, data.reason, duration)
+    return 'success'
+end
+
+local genders = {
+    ['m'] = 'Male',
+    ['f'] = 'Female',
+    [0] = 'Male',
+    [1] = 'Female'
+}
+
+function FormatGender(gender)
+    gender = genders[gender]
+    return gender or 'Unknown Gender' 
+end
+
+---@param data {identifier: string} The data to get the user from
+---@return string returns the screenshot url
+function Screenshot(data)
+    local resourceState = GetResourceState('screenshot-basic')
+    if resourceState ~= 'started' then 
+        Warn('Screenshot property is working with screenshot-basic resource. If you want to use it, please install the screenshot-basic. https://github.com/citizenfx/screenshot-basic')
+        return 'Screenshot property is working with screenshot-basic resource. If you want to use it, please install the screenshot-basic.'
+    end
+    local discord = data.identifier
+    local source = GetPlayerFromUnknownId(discord)
+    if not source then 
+        return {
+            errorCode = 301 -- User is not in the server
+        } 
+    end
+    local screenshot = lib.callback.await('mx-discordtool:takeScreenshot', source)
+    return screenshot
+end
+
+---@param data {identifier:string, reason: string}
+---@return string | table The error code or success
+function KickUser(data)
+    local source = GetPlayerFromUnknownId(data.identifier)
+    if not source then 
+        return {
+            errorCode = 301 -- User is not in the server
+        }
+    end
+    DropPlayer(source, data.reason)
+    return 'success'
+end
+
+local wipeFetch = ([[
+    SELECT TABLE_NAME, COLUMN_NAME, CHARACTER_MAXIMUM_LENGTH
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = '%s' AND DATA_TYPE = 'varchar' AND COLUMN_NAME IN('identifier','owner','citizenid')
+]]):format(DATABASE_NAME)
+
+---@param identifier string The identifier to wipe
+---@return string | table The error code or success
+local function sqlWipe(identifier)
+    local userIsExist = Framework:CheckUserIsExistInSql(identifier)
+    if not userIsExist then 
+        return {
+            errorCode = 301 -- User is not in the database
+        }
+    end
+
+    local result = MySQL.query.await(wipeFetch)
+    for k,element in pairs(result) do
+        local wipeExecute = ([[
+            DELETE FROM %s WHERE %s = ?
+        ]]):format(element.TABLE_NAME, element.COLUMN_NAME)
+        MySQL.Sync.execute(wipeExecute:format(element.TABLE_NAME, element.COLUMN_NAME), {
+            identifier
+        })
+    end
+    return 'success'
+end
+
+---@param data {identifier: string }
+---@return string | table The error code or success
+function Wipe(data)
+    local source = GetPlayerFromUnknownId(data.identifier)
+    local identifier
+    if source then 
+        local identifier = Framework:GetIdentifier(source)
+        if not identifier then return 'Failed to get identifier from source :' .. source end
+        DropPlayer(source, 'You have been wiped from the server.')
+    else    
+        identifier = data.identifier
+        local player = Framework:GetPlayerByIdentifier(identifier)
+        if player then
+            DropPlayer(player.source, 'You have been wiped from the server.')
+        end
+    end
+    
+    return sqlWipe(identifier)
+end
+
+---@param data {identifier: string }
+---@return string | table The error code or success
+function Revive(data)
+    local source = GetPlayerFromUnknownId(data.identifier)
+    if not source then 
+        return {
+            errorCode = 301 -- User is not in the server
+        }
+    end
+    return Framework:Revive(source)
+end
+
+---@param data {identifier: string }
+---@return string | table The error code or success
+function Kill(data)
+    local source = GetPlayerFromUnknownId(data.identifier)
+    if not source then 
+        return {
+            errorCode = 301 -- User is not in the server
+        }
+    end
+    local src = tonumber(source)
+    if not src then return 'Source is not a number!' end
+    TriggerClientEvent('mx-discordtool:die', src)
+    Framework:ShowNotification(src, 'You have been killed by an admin.')
+    return 'success'
+end
+
+---@param data {identifier: string, coords: {x: number, y: number, z: number} }
+---@return string | table The error code or success
+function SetCoords(data)
+    local source = GetPlayerFromUnknownId(data.identifier)
+    if not source then 
+        return {
+            errorCode = 301 -- User is not in the server
+        }
+    end
+    local src = tonumber(source)
+    if not src then return 'Source is not a number!' end
+    local ped = GetPlayerPed(src)
+    local coords = data.coords
+    local x = tonumber(coords.x)
+    local y = tonumber(coords.y)
+    local z = tonumber(coords.z)
+    if not x or not y or not z then return 'Invalid coords' end
+    SetEntityCoords(ped, x, y, z, true, false, false, false)
+    Framework:ShowNotification(src, 'Your coordinates have been set by an admin.')
+    return 'success'
+end
+
+---@param data {identifier: string }
+---@return string | table The error code or success
+function ToggleWhitelist(data)
+    local whitelisted = CheckPlayerIsWhitelisted({
+        license = data.identifier
+    })
+    if whitelisted then
+        RemoveWhitelist(data.identifier)
+    else
+        SetWhitelist(data.identifier)
+    end
+    return 'Changed whitelist status. New status: ' .. (whitelisted and '❌' or '✅') 
+end

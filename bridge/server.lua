@@ -1,5 +1,6 @@
 -- Referenced: https://github.com/overextended/ox_inventory/blob/main/modules/bridge/server.lua
 
+Framework = {}
 local resource = GetCurrentResourceName()
 local scriptPath = ('bridge/%s/server.lua'):format(config.framework)
 local resourceFile = LoadResourceFile(resource, scriptPath)
