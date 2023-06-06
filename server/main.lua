@@ -231,7 +231,7 @@ function Unban(type, identifier)
     })
 end
 
----@param identifier string The identifier to set to base (important for using the multicharacter)
+---@param identifier string
 function SetWhitelist(identifier)
     identifier = SetIdentifierToBase(identifier)
     MySQL.insert.await('INSERT INTO mx_whitelist (identifier) VALUES (?) ON DUPLICATE KEY UPDATE identifier = ?', {
@@ -240,7 +240,7 @@ function SetWhitelist(identifier)
     })
 end
 
----@param identifier string The identifier to set to base (important for using the multicharacter)
+---@param identifier string
 function RemoveWhitelist(identifier)
     identifier = SetIdentifierToBase(identifier)
     MySQL.execute.await('DELETE FROM mx_whitelist WHERE identifier = ?', {
@@ -301,7 +301,7 @@ function CheckPlayerIsBanned(identifier)
     return banList ~= nil
 end
 
----@param identifiers table {license: string, steam: string}
+---@param identifiers {license: string, steam: string}
 ---@return boolean If the player is whitelisted
 function CheckPlayerIsWhitelisted(identifiers)
     if identifiers.license then
@@ -449,12 +449,18 @@ function FormatGender(gender)
 end
 
 ---@param data {identifier: string} The data to get the user from
----@return string returns the screenshot url
+---@return string | table The error code or success
 function Screenshot(data)
     local resourceState = GetResourceState('screenshot-basic')
     if resourceState ~= 'started' then 
-        Warn('Screenshot property is working with screenshot-basic resource. If you want to use it, please install the screenshot-basic. https://github.com/citizenfx/screenshot-basic')
-        return 'Screenshot property is working with screenshot-basic resource. If you want to use it, please install the screenshot-basic.'
+        local str = 'Screenshot property is working with screenshot-basic resource. If you want to use it, please install the screenshot-basic.'
+        Warn(str)
+        return str
+    end
+    if config.webhook == '' then
+        local str = 'Webhook is empty, please set the webhook in the config.lua'
+        Warn(str)
+        return str
     end
     local discord = data.identifier
     local source = GetPlayerFromUnknownId(discord)
@@ -590,4 +596,109 @@ function ToggleWhitelist(data)
         SetWhitelist(data.identifier)
     end
     return 'Changed whitelist status. New status: ' .. (whitelisted and '❌' or '✅') 
+end
+
+---@param data {identifier: string, group: string }
+---@return string | table The error code or success
+function SetGroup(data)
+    local group = data.group
+    if not group then return 'Group is not a string!' end
+    return Framework:SetGroup(data.identifier, group)
+end
+
+---@param data {identifier: string, job: string, grade: string }
+---@return string | table The error code or success
+function SetJob(data)
+    local job = data.job
+    local grade = tonumber(data.grade)
+    if not job then return 'Job is not a string!' end
+    if not grade then return 'Grade is not a number!' end
+    return Framework:SetJob(data.identifier, job, grade)
+end
+
+---@param data {identifier: string, amount: number, type: string, action: string} Action is (add_money, remove_money, set_money) and type is (bank, cash, black_money(only for esx))
+---@return string | table The error code or success
+function SetMoney(data)
+    local amount = tonumber(data.amount)
+    local type = data.type
+    local action = data.action
+    if not amount then return 'Amount is not a number!' end
+    if not type then return 'Type is not a string!' end
+    if not action then return 'Action is not a string!' end
+    return Framework:SetMoney(data.identifier, amount, type, action)
+end
+
+---@param coords vector4 The coords to spawn the vehicle
+---@param model string The model of the vehicle
+---@return string Response string
+---@return number | nil The entity of the vehicle
+local function spawnVehicle(coords, model)
+    -- CreateVehicleServerSetter is not working -_-
+    local entity = CreateVehicle(model, coords.x, coords.y, coords.z + 1.0, coords.w, true, true)
+    local finish = 10
+    while not DoesEntityExist(entity) do
+        Wait(100)
+        finish = finish - 1
+        if finish <= 0 then return 'Failed to spawn vehicle' end
+    end
+    return 'success', entity
+end
+
+---@param data {identifier: string, model: string} The data to give the vehicle
+---@return string | table The error code or success
+function GiveVehicle(data)
+    local source = GetPlayerFromUnknownId(data.identifier)
+    if not source then 
+        return {
+            errorCode = 301 -- User is not in the server
+        }
+    end
+    local src = tonumber(source)
+    if not src then return 'Source is not a number!' end
+    local ped = GetPlayerPed(src)
+    if not ped then return 'Ped is nil but how is the possible? :thinking:' end
+    local entityCoords = GetEntityCoords(ped)
+    local heading = GetEntityHeading(ped)
+    local coords = vec4(entityCoords.x, entityCoords.y, entityCoords.z, heading)
+    local model = data.model
+    if not model then return 'Model is not a string!' end
+    local existModel = lib.callback.await('mx-discordtool:isModelExist', src, model)
+    if not existModel then return 'Model does not exist!' end
+    local response, entity = spawnVehicle(coords, model)
+    if not entity then return response end
+    TaskWarpPedIntoVehicle(ped, entity, -1)
+    Framework:ShowNotification(src, 'You have been given a vehicle by an admin.')
+    return response
+end
+
+---@param data {identifier: string, item: string, amount: string}
+---@return string | table The error code or success
+function GiveItem(data)
+    local source = GetPlayerFromUnknownId(data.identifier)
+    if not source then 
+        return {
+            errorCode = 301 -- User is not in the server
+        }
+    end
+    local item = data.item
+    local amount = tonumber(data.amount)
+    if not item then return 'Item is not a string!' end
+    if not amount then return 'Amount is not a number!' end
+    return Framework:GiveItem(source, item, amount)
+end
+
+---@param data {identifier: string, item: string, amount: string}
+---@return string | table The error code or success
+function RemoveItem(data)
+    local source = GetPlayerFromUnknownId(data.identifier)
+    if not source then 
+        return {
+            errorCode = 301 -- User is not in the server
+        }
+    end
+    local item = data.item
+    local amount = tonumber(data.amount)
+    if not item then return 'Item is not a string!' end
+    if not amount then return 'Amount is not a number!' end
+    return Framework:RemoveItem(source, item, amount)
 end

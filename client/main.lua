@@ -7,6 +7,10 @@ lib.callback.register('mx-discordtool:takeScreenshot', function()
     return Citizen.Await(promise)
 end)
 
+lib.callback.register('mx-discordtool:isModelExist', function(model)
+    return IsModelInCdimage(model)
+end)
+
 
 RegisterNetEvent('mx-discordtool:die', function()
     local ped = PlayerPedId()

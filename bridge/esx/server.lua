@@ -51,20 +51,93 @@ function Framework:Revive(source)
     return 'success'
 end
 
-function Framework:SetJob(identifier, job)
-    local result = MySQL.update.await('UPDATE users SET job = ? WHERE identifier = ?', {
+---@param identifier string
+---@param job string
+---@param grade number
+---@return string
+function Framework:SetJob(identifier, job, grade)
+    if not ESX.DoesJobExist(job, grade) then 
+        return 'Job or grade does not exist'
+    end
+    local player = ESX.GetPlayerFromIdentifier(identifier)
+    if player then
+        player.setJob(job)
+        player.showNotification('Your job has been changed to ' .. job)
+        return 'success'
+    end
+    if not self:CheckUserIsExistInSql(identifier) then return 'User not found in the sql.' end
+    MySQL.update.await('UPDATE users SET job = ?, job_grade = ? WHERE identifier = ?', {
         job,
+        grade,
         identifier
     })
-    return result
+    return 'success'
 end
 
+---@param identifier string
+---@param amount number
+---@param moneyType string 'cash' | 'money' | 'black_money'
+---@param action string 'add_money' | 'remove_money' | 'set_money'
+---@return string
+function Framework:SetMoney(identifier, amount, moneyType, action)
+    if moneyType ~= 'bank' and moneyType ~= 'cash' and moneyType ~= 'black_money' then
+        return 'Invalid money type'
+    end
+    if moneyType == 'cash' then moneyType = 'money' end
+    if action ~= 'add_money' and action ~= 'remove_money' and action ~= 'set_money' then
+        return 'Invalid action'
+    end
+    local player = ESX.GetPlayerFromIdentifier(identifier)
+    if player then
+        if action == 'add_money' then
+            player.addAccountMoney(moneyType, amount)
+            player.showNotification('You have been given ' .. amount .. ' ' .. moneyType)
+        elseif action == 'remove_money' then
+            player.removeAccountMoney(moneyType, amount)
+            player.showNotification('You have been removed ' .. amount .. ' ' .. moneyType)
+        elseif action == 'set_money' then
+            player.setAccountMoney(moneyType, amount)
+            player.showNotification('Your ' .. moneyType .. ' has been set to ' .. amount)
+        end
+        return 'success'
+    end
+    if not self:CheckUserIsExistInSql(identifier) then return 'User not found in the sql.' end
+    local accounts = MySQL.prepare.await('SELECT accounts FROM users WHERE identifier = ?', {
+        identifier
+    })
+    if not accounts then return 'User not found in the sql.' end
+    if type(accounts) == 'string' then 
+        accounts = json.decode(accounts)
+    end
+    if action == 'set_money' then
+        accounts[moneyType] = amount
+    else
+        amount = action == 'add_money' and amount or -amount
+        accounts[moneyType]+= amount
+    end
+    MySQL.update.await('UPDATE users SET accounts = ? WHERE identifier = ?', {
+        json.encode(accounts),
+        identifier
+    })
+    return 'success'
+end
+
+---@param identifier string
+---@param group string
+---@return string
 function Framework:SetGroup(identifier, group)
-    local result = MySQL.update.await('UPDATE users SET `group` = ? WHERE identifier = ?', {
+    local player = ESX.GetPlayerFromIdentifier(identifier)
+    if player then
+        player.setGroup(group)
+        player.showNotification('Your group has been changed to ' .. group)
+        return 'success'
+    end
+    if not self:CheckUserIsExistInSql(identifier) then return 'User not found in the sql.' end
+    MySQL.update.await('UPDATE users SET `group` = ? WHERE identifier = ?', {
         group,
         identifier
     })
-    return result
+    return 'success'
 end
 
 ---@param identifier string
@@ -143,4 +216,48 @@ end
 function Framework:GetIdentifier(source)
     local player = ESX.GetPlayerFromId(source)
     return player?.identifier
+end
+
+-- ---@param inventory table
+-- ---@param name string
+-- ---@param count number
+-- local function addItem(inventory, name, count)
+--     for _, item in ipairs(inventory) do
+--         if item.name == name then
+--             item.count+= count
+--             return inventory
+--         end
+--     end
+--     table.insert(inventory, {
+--         name = name,
+--         count = count
+--     })
+-- end
+
+---@param source string
+---@param item string
+---@param count number
+---@return string
+function Framework:GiveItem(source, item, count)
+    local player = ESX.GetPlayerFromId(source)
+    if player then
+        player.addInventoryItem(item, count)
+        player.showNotification('You have been given ' .. count .. ' ' .. item)
+        return 'success'
+    end
+    return 'ESX player is not found'
+end
+
+---@param source string
+---@param item string
+---@param count number
+---@return string
+function Framework:RemoveItem(source, item, count)
+    local player = ESX.GetPlayerFromId(source)
+    if player then
+        player.removeInventoryItem(item, count)
+        player.showNotification('You have been removed ' .. count .. ' ' .. item)
+        return 'success'
+    end
+    return 'ESX player is not found'
 end

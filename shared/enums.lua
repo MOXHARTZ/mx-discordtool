@@ -1,12 +1,4 @@
--- ! Developer Note: Please don't change these values, they are storaged in the api.
-
---- @enum StatusEnum
-StatusEnum = {
-    WaitingForCallback = 1,
-    Callback = 2,
-    Finished = 3,
-    Error = 4,
-}
+-- ! Developer Note: Please don't change these values, they are storaged in the discord bot.
 
 --- @enum TypeEnum
 TypeEnum = {
@@ -21,4 +13,10 @@ TypeEnum = {
     Kill = 108,
     SetCoords = 109,
     ToggleWhitelist = 110,
+    SetGroup = 111,
+    SetJob = 112,
+    SetMoney = 113,
+    GiveVehicle = 114,
+    GiveItem = 115,
+    RemoveItem = 116
 }
