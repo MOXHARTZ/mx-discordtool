@@ -1,7 +1,5 @@
 const { io } = require('socket.io-client');
-// let socketUrl = 'https://socket.moxha.net'
-let socketUrl = 'http://127.0.0.1:3001'
-// if (process.env.NODE_ENV == 'development') socketUrl = 'http://localhost:3001';
+let socketUrl = 'https://socket.moxha.net'
 const socket = io(socketUrl);
 const GUILD_ID = '720326694271189124';
 

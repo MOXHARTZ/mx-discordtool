@@ -1,4 +1,4 @@
-ESX = exports['es_extended']:getSharedObject()
+local ESX = exports['es_extended']:getSharedObject()
 
 local function getPlayerAccounts(player)
     local accounts = player.getAccounts()
