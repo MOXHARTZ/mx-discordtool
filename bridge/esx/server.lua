@@ -147,8 +147,13 @@ function Framework:GetPlayerByIdentifier(identifier)
 end
 
 --- @param identifier string
----@return {banned: boolean, whitelisted: boolean, job: string, charinfo: table, accounts: table, group: string, identifier: string, inventory: table, status: 'online' | 'offline'}
+---@return {banned: boolean, whitelisted: boolean, job: string, charinfo: table, accounts: table, group: string, identifier: string, inventory: table, status: 'online' | 'offline', source?: number}
 function Framework:GetUserData(identifier)
+    if not identifier then 
+        return {
+            errorCode = 301
+        } 
+    end
     local str = 'SELECT firstname, lastname, accounts, job, inventory, `group`, sex, dateofbirth, phone_number, height FROM users WHERE identifier = ?'
     local player = ESX.GetPlayerFromIdentifier(identifier)
     if player then
@@ -169,7 +174,7 @@ function Framework:GetUserData(identifier)
         result.job = player.getJob().name
         result.inventory = inventory
         result.group = player.getGroup()
-        result.armor = tostring(GetPedArmour(ped))
+        result.source = source
         result.health = GetEntityHealth(ped)
         result.ping = GetPlayerPing(source)
         result.discord = GetPlayerDiscordId(source)
@@ -207,11 +212,11 @@ function Framework:GetUserData(identifier)
         health = result.health,
         ping = result.ping,
         discord = result.discord,
-        armor = result.armor
+        source = result.source
     }
 end
 
---- @param source string
+--- @param source string | number
 ---@return string
 function Framework:GetIdentifier(source)
     local player = ESX.GetPlayerFromId(source)
@@ -260,4 +265,22 @@ function Framework:RemoveItem(source, item, count)
         return 'success'
     end
     return 'ESX player is not found'
+end
+
+---@param firstName string
+---@param lastName string
+---@return string | table {errorCode: number}
+function Framework:GetIdentifierByFirstnameAndLastname(firstName, lastName)
+    firstName = firstName:lower()
+    lastName = lastName:lower()
+    local identifier = MySQL.prepare.await('SELECT identifier FROM users WHERE LOWER(firstname) = ? AND LOWER(lastname) = ?', {
+        firstName,
+        lastName
+    })
+    if not identifier then 
+        return {
+            errorCode = 301
+        }
+    end
+    return identifier
 end

@@ -18,5 +18,8 @@ TypeEnum = {
     SetMoney = 113,
     GiveVehicle = 114,
     GiveItem = 115,
-    RemoveItem = 116
+    RemoveItem = 116,
+    UnBan = 117,
+    GetUserByName = 118,
+    GetUserBySource = 119,
 }

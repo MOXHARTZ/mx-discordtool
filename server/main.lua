@@ -6,6 +6,8 @@
 
 local convar = GetConvar("mysql_connection_string", "")
 
+---@param connectionString string The connection string to parse
+---@return table The parsed uri
 local function parseUri(connectionString)
     local uri = {}
     local str = connectionString:sub(9)
@@ -198,6 +200,7 @@ end
 ---@param reason string The reason of the ban
 local function banSql(identifier, fivem, license, xbl, live, discord, tokens, duration, reason)
     identifier = identifier or ''
+    identifier = SetIdentifierToBase(identifier)
     fivem = fivem or ''
     license = license or ''
     xbl = xbl or ''
@@ -219,16 +222,22 @@ local function banSql(identifier, fivem, license, xbl, live, discord, tokens, du
     })
 end
 
---- @param type string The type of the identifier to get (discord, license, xbl, live, fivem, identifier)
---- @param identifier string The identifier to get the player from
-function Unban(type, identifier)
-    identifier = SetIdentifierToBase(identifier)
-    local str = ([[
-        DELETE FROM mx_banlist WHERE %s = ?
-    ]]):format(type)
-    MySQL.execute.await(str, {
+--- @param data {identifier: string} 
+--- @return string | table The error code or success
+function UnBan(data)
+    local userIsExist = Framework:CheckUserIsExistInSql(data.identifier)
+    if not userIsExist then 
+        return {
+            errorCode = 301 -- User is not in the database
+        }
+    end
+    local identifier = SetIdentifierToBase(data.identifier)
+    local isBanned = CheckPlayerIsBanned(identifier)
+    if not isBanned then return _T('unban.is_not_banned') end
+    MySQL.execute.await('DELETE FROM mx_banlist WHERE identifier = ?', {
         identifier
     })
+    return 'success'
 end
 
 ---@param identifier string
@@ -260,6 +269,13 @@ local function checkTokens(tokens1, tokens2)
     return false
 end
 
+---@param number number The number to check
+---@param str string The string to add the suffix
+local function suffixDate(number, str)
+    if number > 1 then return str .. 's' end
+    return str
+end
+
 ---@param time number The time to format
 ---@return string The formatted time
 local function formatDuration(time)
@@ -268,6 +284,8 @@ local function formatDuration(time)
     duration = duration - (years * 60 * 60 * 24 * 365)
     local months = math.floor(duration / (60 * 60 * 24 * 30))
     duration = duration - (months * 60 * 60 * 24 * 30)
+    local weeks = math.floor(duration / (60 * 60 * 24 * 7))
+    duration = duration - (weeks * 60 * 60 * 24 * 7)
     local days = math.floor(duration / (60 * 60 * 24))
     duration = duration - (days * 60 * 60 * 24)
     local hours = math.floor(duration / (60 * 60))
@@ -275,21 +293,25 @@ local function formatDuration(time)
     local minutes = math.floor(duration / 60)
     duration = duration - (minutes * 60)
     local seconds = math.floor(duration)
+
+    local yearStr = suffixDate(years, 'year')
+    local monthStr = suffixDate(months, 'month')
+    local weekStr = suffixDate(weeks, 'week')
+    local dayStr = suffixDate(days, 'day')
+    local hourStr = suffixDate(hours, 'hour')
+    local minuteStr = suffixDate(minutes, 'minute')
+    local secondStr = suffixDate(seconds, 'second')
+
     local data = {}
-    if years > 0 then table.insert(data, years .. ' year' .. (years > 1 and 's' or '')) end
-    if months > 0 then table.insert(data, months .. ' month' .. (months > 1 and 's' or '')) end
-    if days > 0 then table.insert(data, days .. ' day' .. (days > 1 and 's' or '')) end
-    if hours > 0 then table.insert(data, hours .. ' hour' .. (hours > 1 and 's' or '')) end
-    if minutes > 0 then table.insert(data, minutes .. ' minute' .. (minutes > 1 and 's' or '')) end
-    if seconds > 0 then table.insert(data, seconds .. ' second' .. (seconds > 1 and 's' or '')) end
+    if years > 0 then table.insert(data, years .. _T(yearStr)) end
+    if months > 0 then table.insert(data, months .. _T(monthStr)) end
+    if weeks > 0 then table.insert(data, weeks .. _T(weekStr)) end
+    if days > 0 then table.insert(data, days .. _T(dayStr)) end
+    if hours > 0 then table.insert(data, hours .. _T(hourStr)) end
+    if minutes > 0 then table.insert(data, minutes .. _T(minuteStr)) end
+    if seconds > 0 then table.insert(data, seconds .. _T(secondStr)) end
     return table.concat(data, ', ')
 end
-
-local banReasonProvider = [[
-    You are banned from this server. 
-    Reason: %s 
-    Expires: %s
-]]
 
 ---@param identifier string The identifier to check
 ---@return boolean If the player is banned
@@ -318,7 +340,7 @@ local function onPlayerConnecting(name, setKickReason, deferrals)
     local source = source
     deferrals.defer()
     Wait(0)
-    deferrals.update('We are checking some things, please wait.')
+    deferrals.update(_T('connection.checking'))
     Wait(1000)
     local identifiers = GetPlayerIdentifierFromType(source, {
         'discord',
@@ -329,16 +351,17 @@ local function onPlayerConnecting(name, setKickReason, deferrals)
         'steam'
     })
     if not identifiers then 
-        deferrals.done('We can\'t get your identifiers, please try again later. If the problem persists, contact the server owner.')
+        deferrals.done(_T('connection.can_not_get_identifiers'))
         return
     end
 
-    deferrals.update('We are checking if you are banned, please wait.')
+    deferrals.update(_T('connection.checking.ban'))
+
     Wait(1000)
 
     local tokens = GetTokensFromPlayer(source)
     if not tokens then 
-        deferrals.done('We can\'t get your tokens, please try again later. If the problem persists, contact the server owner.')
+        deferrals.done(_T('connection.can_not_get_tokens'))
         return
     end
 
@@ -364,7 +387,7 @@ local function onPlayerConnecting(name, setKickReason, deferrals)
                 return
             end
             local duration = formatDuration(ban.duration)
-            local reason = banReasonProvider:format(ban.reason, duration)
+            local reason = _T('connection.banned', ban.reason, duration)
             deferrals.done(reason)
             return
         end
@@ -376,7 +399,7 @@ local function onPlayerConnecting(name, setKickReason, deferrals)
 
     if not config.whitelist then return deferrals.done() end
 
-    deferrals.update('We are checking if you are whitelisted, please wait.')
+    deferrals.update(_T('connection.checking.whitelist'), config.discordInviteLink)
 
     Wait(1000)
     
@@ -387,7 +410,7 @@ local function onPlayerConnecting(name, setKickReason, deferrals)
     })
 
     if not whitelisted then
-        deferrals.done(config.notAllowedWhitelistText)
+        deferrals.done(_T('connection.not_whitelisted'))
         return
     end
 
@@ -411,7 +434,7 @@ local function ban(source, reason, duration)
         'live',
         'fivem'
     })
-    if not identifiers then return Warn('Failed to get identifier from source :' .. source) end
+    if not identifiers then return Warn(_T('error.failed_to_get_identifier', source)) end
     local tokens = GetTokensFromPlayer(source)
     if not tokens then return Warn('Failed to get tokens from source :' .. source) end
     banSql(frameworkIdentifier, identifiers?.fivem, identifiers?.license, identifiers?.xbl, identifiers?.live, identifiers.discord, tokens, duration, reason)
@@ -436,14 +459,16 @@ function BanUser(data)
     return 'success'
 end
 
-local genders = {
-    ['m'] = 'Male',
-    ['f'] = 'Female',
-    [0] = 'Male',
-    [1] = 'Female'
-}
-
+local genders
 function FormatGender(gender)
+    if not genders then
+        genders = {
+            ['m'] = _T('user_info.male'),
+            ['f'] = _T('user_info.female'),
+            [0] = _T('user_info.male'),
+            [1] = _T('user_info.female')
+        }
+    end
     gender = genders[gender]
     return gender or 'Unknown Gender' 
 end
@@ -520,14 +545,14 @@ function Wipe(data)
     local source = GetPlayerFromUnknownId(data.identifier)
     local identifier
     if source then 
-        local identifier = Framework:GetIdentifier(source)
-        if not identifier then return 'Failed to get identifier from source :' .. source end
-        DropPlayer(source, 'You have been wiped from the server.')
+        identifier = Framework:GetIdentifier(source)
+        if not identifier then return _T('error.failed_to_get_identifier', source) end
+        DropPlayer(source, _T('wipe.drop.player.reason'))
     else    
         identifier = data.identifier
         local player = Framework:GetPlayerByIdentifier(identifier)
         if player then
-            DropPlayer(player.source, 'You have been wiped from the server.')
+            DropPlayer(player.source, _T('wipe.drop.player.reason'))
         end
     end
     
@@ -558,7 +583,7 @@ function Kill(data)
     local src = tonumber(source)
     if not src then return 'Source is not a number!' end
     TriggerClientEvent('mx-discordtool:die', src)
-    Framework:ShowNotification(src, 'You have been killed by an admin.')
+    Framework:ShowNotification(src, _T('kill.notification'))
     return 'success'
 end
 
@@ -578,9 +603,9 @@ function SetCoords(data)
     local x = tonumber(coords.x)
     local y = tonumber(coords.y)
     local z = tonumber(coords.z)
-    if not x or not y or not z then return 'Invalid coords' end
+    if not x or not y or not z then return _T('set_coords.invalid') end
     SetEntityCoords(ped, x, y, z, true, false, false, false)
-    Framework:ShowNotification(src, 'Your coordinates have been set by an admin.')
+    Framework:ShowNotification(src, _T('set_coords.notification'))
     return 'success'
 end
 
@@ -595,7 +620,7 @@ function ToggleWhitelist(data)
     else
         SetWhitelist(data.identifier)
     end
-    return 'Changed whitelist status. New status: ' .. (whitelisted and '❌' or '✅') 
+    return _T('whitelist.response', whitelisted and '❌' or '✅')
 end
 
 ---@param data {identifier: string, group: string }
@@ -612,7 +637,7 @@ function SetJob(data)
     local job = data.job
     local grade = tonumber(data.grade)
     if not job then return 'Job is not a string!' end
-    if not grade then return 'Grade is not a number!' end
+    if not grade then return _T('set_job.grade.invalid') end
     return Framework:SetJob(data.identifier, job, grade)
 end
 
@@ -663,11 +688,11 @@ function GiveVehicle(data)
     local model = data.model
     if not model then return 'Model is not a string!' end
     local existModel = lib.callback.await('mx-discordtool:isModelExist', src, model)
-    if not existModel then return 'Model does not exist!' end
+    if not existModel then return _T('give_vehicle.model.does_not_exists') end
     local response, entity = spawnVehicle(coords, model)
     if not entity then return response end
     TaskWarpPedIntoVehicle(ped, entity, -1)
-    Framework:ShowNotification(src, 'You have been given a vehicle by an admin.')
+    Framework:ShowNotification(src, _T('give_vehicle.notification'))
     return response
 end
 
@@ -701,4 +726,28 @@ function RemoveItem(data)
     if not item then return 'Item is not a string!' end
     if not amount then return 'Amount is not a number!' end
     return Framework:RemoveItem(source, item, amount)
+end
+
+---@param data {firstName: string, lastName: string}
+---@return string | table The error code or success
+function GetUserByName(data)
+    local firstName = data.firstName
+    local lastName = data.lastName
+    if not firstName then return 'First name is not a string!' end
+    if not lastName then return 'Last name is not a string!' end
+    local identifier = Framework:GetIdentifierByFirstnameAndLastname(firstName, lastName)
+    if type(identifier) == 'table' then return identifier end
+    local resolve = Framework:GetUserData(identifier)
+    return resolve
+end
+
+---@param data {source: string | number}
+---@return string | table The error code or success
+function GetUserBySource(data)
+    local src = tonumber(data.source)
+    if not src then return 'Source is not a number!' end
+    local identifier = Framework:GetIdentifier(src)
+    if not identifier then return _T('error.failed_to_get_identifier', source) end
+    local resolve = Framework:GetUserData(identifier)
+    return resolve
 end
