@@ -37,6 +37,9 @@ This is a discord bot for your fivem server. It has a lot of features and is eas
 - [x] Show player's whitelisted status
 - [x] Show player's in game informations (ping, health, armour and status)
 
+# Languages
+- For now, the bot is only available in english. If you want to add a new language go to here: [Bot Translations](https://github.com/MOXHARTZ/fivem-manager-bot-translations) and follow the instructions.
+
 # TODO
 - [ ] Inventory fast actions
 - [ ] Show ban list
