@@ -1,9 +1,47 @@
-# mx-discordtool
+<div align="center">
+    <h1 style="font-weight: 700; border-bottom: 0px;">
+        <a href="https://docs.moxha.dev/docs/free-scripts/fivem-manager-bot">Read the documentation for installation</a>
+    </h1>
+</div>
 
-# TODO 
-- [ ] Inventory fast actions.
-- [ ] Banlist command.
-- [ ] Show whiteList command.
-- [ ] Add whitelist command
+
+# Introduction
+This is a discord bot for your fivem server. It has a lot of features and is easy to setup. It is made for ESX and QB. <b>I'm still working on it and adding new features. If you have any suggestions or want to help me, feel free to pull request or join my discord server.<b>
+
+[![Discord](https://img.shields.io/discord/720326694271189124?color=blue&label=Discord&logo=discord&logoColor=white)](https://discord.gg/davU2SY)
+
+# Framework
+- [x] ESX
+- [x] QB
+
+# Features
+- [x] Get player informations with source, discord, identifier or first name and last name
+- [x] Ban (Token ban)
+- [x] Kick
+- [x] Wipe
+- [x] Set money (add, remove, set)
+- [x] Give item
+- [x] Set job
+- [x] Set group
+- [x] Set whitelist
+- [x] Revive player
+- [x] Kill player 
+- [x] Give a vehicle to player 
+- [x] Teleport player to a coordinate 
+- [x] Take screenshot from player's screen
+- [x] Show player's inventory
+- [x] Show player's money (cash, bank, black_money, crypto)
+- [x] Show player's job, 
+- [x] Show player's group
+- [x] Show player's banned status
+- [x] Show player's whitelisted status
+- [x] Show player's in game informations (ping, health, armour and status)
+
+# TODO
+- [ ] Inventory fast actions
+- [ ] Show ban list
+- [ ] Show whitelist players
+- [ ] Add whitelist
 - [ ] Add webhook to all commands
-- [ ] Show active players command.
+- [ ] Show active players
+- [ ] Show Player's vehicles

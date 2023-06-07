@@ -6,7 +6,7 @@ config = {
     whitelist          = false,                -- In Development. Currently, you can add or remove whitelists only for existing users.
     discordInviteLink  = '',                   -- Discord invite link
     webhook            = '',                   -- Discord webhook for the screenshots
-    language           = 'en-US',              -- (en-US, it) https://github.com/MOXHARTZ/fivem-manager-bot-translations
+    language           = 'en-US',              -- (en-US) https://github.com/MOXHARTZ/fivem-manager-bot-translations
 }
 
 exports('GetConfig', function()
