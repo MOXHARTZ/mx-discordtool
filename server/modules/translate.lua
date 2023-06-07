@@ -1,4 +1,4 @@
-local URL = 'https://raw.githubusercontent.com/MOXHARTZ/discord-bot-languages/main/'
+local URL = 'https://raw.githubusercontent.com/MOXHARTZ/fivem-manager-bot-translations/main/'
 local translates = {}
 
 local function getTranslations()
@@ -26,7 +26,7 @@ function _T(key, ...)
     local text = translates[key]
     if not text then return key end
     for i = 1, #args do
-        text = text:gsub('{' .. i .. '}', args[i])
+        text = text:gsub('{' .. i - 1 .. '}', args[i])
     end
     return text
 end

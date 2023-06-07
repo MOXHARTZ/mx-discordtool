@@ -1,8 +1,4 @@
---- @class Response
---- @field owner string The owner of the data (The discord id)
---- @field guild string The guild of the data (The discord guild id)
---- @field type TypeEnum The type of the data
---- @field data table It's coming from discord
+if config.guild == '' then error('Please set the guild id in the config.lua') end
 
 local convar = GetConvar("mysql_connection_string", "")
 
@@ -53,13 +49,24 @@ if not DATABASE_NAME then
     error('Failed to get database name from mysql_connection_string convar. Please check your mysql_connection_string convar. You can reference here: https://overextended.dev/oxmysql/issues')
 end
 
-local function getEnumName(value)
+---@param enum number
+---@return string | nil
+local function getEnumName(enum)
     for k, v in pairs(TypeEnum) do
-        if v == value then return k end
+        if v == enum then return k end
     end
     return nil
 end
 
+local function getGuildId()
+    return config.guild
+end
+
+exports('GetGuildId', getGuildId)
+
+---@param enum number The enum to convert to function
+---@param owner string The command sender (Discord Id) In the future we will use this for some things
+---@vararg any The arguments to pass to the enum
 local function enumToFunction(enum, owner, ...)
     if not enum then return error('enum is nil') end
     local enumName = getEnumName(enum)
@@ -70,6 +77,9 @@ local function enumToFunction(enum, owner, ...)
     return data
 end
 
+---@param owner string The command sender (Discord Id) In the future we will use this for some things
+---@param guild string The guild id to get the data from
+---@param type number The enum to convert to function
 ---@param data table
 local function getRequestData(owner, guild, type, data)
     return enumToFunction(type, owner, data)
@@ -161,7 +171,9 @@ end
 ---@param identifier string The identifier to set to base (important for using the multicharacter)
 ---@return string The identifier without the multicharacter code (ex: 1:123456789 -> 123456789)
 function SetIdentifierToBase(identifier)
-    local split = identifier:split(':')
+    local match = identifier:match('%d:%d+')
+    if not match then return identifier end
+    local split = match:split(':')
     if #split > 1 then
         identifier = split[2]
     end
@@ -294,13 +306,13 @@ local function formatDuration(time)
     duration = duration - (minutes * 60)
     local seconds = math.floor(duration)
 
-    local yearStr = suffixDate(years, 'year')
-    local monthStr = suffixDate(months, 'month')
-    local weekStr = suffixDate(weeks, 'week')
-    local dayStr = suffixDate(days, 'day')
-    local hourStr = suffixDate(hours, 'hour')
-    local minuteStr = suffixDate(minutes, 'minute')
-    local secondStr = suffixDate(seconds, 'second')
+    local yearStr = suffixDate(years, 'general.year')
+    local monthStr = suffixDate(months, 'general.month')
+    local weekStr = suffixDate(weeks, 'general.week')
+    local dayStr = suffixDate(days, 'general.day')
+    local hourStr = suffixDate(hours, 'general.hour')
+    local minuteStr = suffixDate(minutes, 'general.minute')
+    local secondStr = suffixDate(seconds, 'general.second')
 
     local data = {}
     if years > 0 then table.insert(data, years .. _T(yearStr)) end
@@ -421,6 +433,7 @@ end
 
 AddEventHandler('playerConnecting', onPlayerConnecting)
 
+-- ! Developer Note Framework:GetIdentifier function returns the citizenid for qbcore. So maybe we need to change it to steam or license or fivem or discord. 
 ---@param source string The player server id to get the framework identifier from
 ---@param reason string The reason of the ban
 ---@param duration number The duration of the ban
@@ -612,6 +625,10 @@ end
 ---@param data {identifier: string }
 ---@return string | table The error code or success
 function ToggleWhitelist(data)
+    if not config.whitelist then return _T('whitelist.disabled') end
+    local frameworkIdentifier = Framework:SetIdentifier(data.identifier)
+    if not frameworkIdentifier then return _T('error.failed_to_get_identifier', data.identifier) end
+    data.identifier = frameworkIdentifier
     local whitelisted = CheckPlayerIsWhitelisted({
         license = data.identifier
     })
@@ -747,7 +764,18 @@ function GetUserBySource(data)
     local src = tonumber(data.source)
     if not src then return 'Source is not a number!' end
     local identifier = Framework:GetIdentifier(src)
-    if not identifier then return _T('error.failed_to_get_identifier', source) end
+    if not identifier then return _T('error.failed_to_get_identifier', data.source) end
     local resolve = Framework:GetUserData(identifier)
     return resolve
+end
+
+---@param inventory table
+---@return table
+function FormatInventory(inventory)
+    local result = {}
+    if not inventory then return result end
+    for _, item in ipairs(inventory) do
+        table.insert(result, item)
+    end
+    return result
 end

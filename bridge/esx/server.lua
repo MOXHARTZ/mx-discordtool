@@ -1,3 +1,4 @@
+---@diagnostic disable: duplicate-set-field
 local ESX = exports['es_extended']:getSharedObject()
 
 local function getPlayerAccounts(player)
@@ -6,17 +7,6 @@ local function getPlayerAccounts(player)
     if not accounts then return result end
     for _, account in ipairs(accounts) do
         result[account.name] = account.money
-    end
-    return result
-end
-
----@param inventory table
----@return table
-local function formatInventory(inventory)
-    local result = {}
-    if not inventory then return result end
-    for _, item in ipairs(inventory) do
-        table.insert(result, item)
     end
     return result
 end
@@ -47,7 +37,7 @@ function Framework:Revive(source)
     local player = ESX.GetPlayerFromId(source)
     if not player then return 'Player not found' end
     player.triggerEvent('esx_ambulancejob:revive')
-    player.showNotification('You have been revived by an admin.')
+    player.showNotification(_T('revive.notification'))
     return 'success'
 end
 
@@ -62,10 +52,10 @@ function Framework:SetJob(identifier, job, grade)
     local player = ESX.GetPlayerFromIdentifier(identifier)
     if player then
         player.setJob(job)
-        player.showNotification('Your job has been changed to ' .. job)
+        player.showNotification(_T('set_job.notification', job, grade))
         return 'success'
     end
-    if not self:CheckUserIsExistInSql(identifier) then return 'User not found in the sql.' end
+    if not self:CheckUserIsExistInSql(identifier) then return _T('command.not_found_user_in_database') end
     MySQL.update.await('UPDATE users SET job = ?, job_grade = ? WHERE identifier = ?', {
         job,
         grade,
@@ -91,21 +81,21 @@ function Framework:SetMoney(identifier, amount, moneyType, action)
     if player then
         if action == 'add_money' then
             player.addAccountMoney(moneyType, amount)
-            player.showNotification('You have been given ' .. amount .. ' ' .. moneyType)
+            player.showNotification(_T('set_money.add.notification', moneyType, amount))
         elseif action == 'remove_money' then
             player.removeAccountMoney(moneyType, amount)
-            player.showNotification('You have been removed ' .. amount .. ' ' .. moneyType)
+            player.showNotification(_T('set_money.remove.notification', moneyType, amount))
         elseif action == 'set_money' then
             player.setAccountMoney(moneyType, amount)
-            player.showNotification('Your ' .. moneyType .. ' has been set to ' .. amount)
+            player.showNotification(_T('set_money.set.notification', moneyType, amount))
         end
         return 'success'
     end
-    if not self:CheckUserIsExistInSql(identifier) then return 'User not found in the sql.' end
+    if not self:CheckUserIsExistInSql(identifier) then return _T('command.not_found_user_in_database') end
     local accounts = MySQL.prepare.await('SELECT accounts FROM users WHERE identifier = ?', {
         identifier
     })
-    if not accounts then return 'User not found in the sql.' end
+    if not accounts then return _T('command.not_found_user_in_database') end
     if type(accounts) == 'string' then 
         accounts = json.decode(accounts)
     end
@@ -126,13 +116,13 @@ end
 ---@param group string
 ---@return string
 function Framework:SetGroup(identifier, group)
-    local player = ESX.GetPlayerFromIdentifier(identifier)
+    local player = self:GetPlayerByIdentifier(identifier)
     if player then
         player.setGroup(group)
-        player.showNotification('Your group has been changed to ' .. group)
+        player.showNotification(_T('set_group.notification', group))
         return 'success'
     end
-    if not self:CheckUserIsExistInSql(identifier) then return 'User not found in the sql.' end
+    if not self:CheckUserIsExistInSql(identifier) then return _T('command.not_found_user_in_database') end
     MySQL.update.await('UPDATE users SET `group` = ? WHERE identifier = ?', {
         group,
         identifier
@@ -155,7 +145,7 @@ function Framework:GetUserData(identifier)
         } 
     end
     local str = 'SELECT firstname, lastname, accounts, job, inventory, `group`, sex, dateofbirth, phone_number, height FROM users WHERE identifier = ?'
-    local player = ESX.GetPlayerFromIdentifier(identifier)
+    local player = self:GetPlayerByIdentifier(identifier)
     if player then
         str = 'SELECT firstname, lastname, sex, dateofbirth, phone_number, height FROM users WHERE identifier = ?'
     end
@@ -169,7 +159,7 @@ function Framework:GetUserData(identifier)
     if player then
         local source = player.source
         local ped = GetPlayerPed(source)
-        local inventory = formatInventory(player.getInventory())
+        local inventory = FormatInventory(player.getInventory())
         result.accounts = getPlayerAccounts(player)
         result.job = player.getJob().name
         result.inventory = inventory
@@ -181,7 +171,7 @@ function Framework:GetUserData(identifier)
     else
         result.accounts = json.decode(result.accounts)
         result.inventory = json.decode(result.inventory)
-        result.inventory = formatInventory(result.inventory)
+        result.inventory = FormatInventory(result.inventory)
     end
 
     local charinfo = {
@@ -223,6 +213,13 @@ function Framework:GetIdentifier(source)
     return player?.identifier
 end
 
+-- this function only using in qb
+--- @param identifier string
+---@return string | false
+function Framework:SetIdentifier(identifier)
+    return identifier
+end
+
 -- ---@param inventory table
 -- ---@param name string
 -- ---@param count number
@@ -247,10 +244,10 @@ function Framework:GiveItem(source, item, count)
     local player = ESX.GetPlayerFromId(source)
     if player then
         player.addInventoryItem(item, count)
-        player.showNotification('You have been given ' .. count .. ' ' .. item)
+        player.showNotification(_T('give_item.notification', count, item))
         return 'success'
     end
-    return 'ESX player is not found'
+    return _T('esx.player_not_found')
 end
 
 ---@param source string
@@ -261,10 +258,10 @@ function Framework:RemoveItem(source, item, count)
     local player = ESX.GetPlayerFromId(source)
     if player then
         player.removeInventoryItem(item, count)
-        player.showNotification('You have been removed ' .. count .. ' ' .. item)
+        player.showNotification(_T('remove_item.notification', count, item))
         return 'success'
     end
-    return 'ESX player is not found'
+    return _T('esx.player_not_found')
 end
 
 ---@param firstName string
