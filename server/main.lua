@@ -1,4 +1,4 @@
-if config.guild == '' then error('Please set the guild id in the config.lua') end
+if config.guild == '' then Warn('Please set the guild id in the config.lua') end
 
 local convar = GetConvar("mysql_connection_string", "")
 
