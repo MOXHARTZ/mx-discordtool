@@ -48,3 +48,5 @@ This is a discord bot for your fivem server. It has a lot of features and is eas
 - [ ] Add webhook to all commands
 - [ ] Show active players
 - [ ] Show Player's vehicles
+- [ ] Add these commands: jail, community service
+- [ ] Add these informations: jail time, community service time
