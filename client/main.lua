@@ -1,6 +1,6 @@
-lib.callback.register('mx-discordtool:takeScreenshot', function()
+lib.callback.register('mx-discordtool:takeScreenshot', function(webhook)
     local promise = promise:new()
-    exports['screenshot-basic']:requestScreenshotUpload(config.webhook, 'files[]', function(data)
+    exports['screenshot-basic']:requestScreenshotUpload(webhook, 'files[]', function(data)
         local image = json.decode(data)
         promise:resolve(image.attachments[1].proxy_url)
     end)

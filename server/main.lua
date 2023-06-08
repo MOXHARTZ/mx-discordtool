@@ -169,9 +169,9 @@ function GetTokensFromPlayer(source)
 end
 
 ---@param identifier string The identifier to set to base (important for using the multicharacter)
----@return string The identifier without the multicharacter code (ex: 1:123456789 -> 123456789)
+---@return string The identifier without the multicharacter code (ex: 1:123sd23 -> 123sd23)
 function SetIdentifierToBase(identifier)
-    local match = identifier:match('%d:%d+')
+    local match = identifier:match('%d:%w+')
     if not match then return identifier end
     local split = match:split(':')
     if #split > 1 then
@@ -507,7 +507,8 @@ function Screenshot(data)
             errorCode = 301 -- User is not in the server
         } 
     end
-    local screenshot = lib.callback.await('mx-discordtool:takeScreenshot', source)
+    local screenshot = lib.callback.await('mx-discordtool:takeScreenshot', source, config.webhook)
+    if screenshot == '' then return 'Failed to take screenshot. May be the webhook is not valid.' end
     return screenshot
 end
 

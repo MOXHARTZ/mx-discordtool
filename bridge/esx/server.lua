@@ -51,7 +51,7 @@ function Framework:SetJob(identifier, job, grade)
     end
     local player = ESX.GetPlayerFromIdentifier(identifier)
     if player then
-        player.setJob(job)
+        player.setJob(job, grade)
         player.showNotification(_T('set_job.notification', job, grade))
         return 'success'
     end
