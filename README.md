@@ -6,7 +6,10 @@
 
 
 # Introduction
-This is a discord bot for your fivem server. It has a lot of features and is easy to setup. It is made for ESX and QB. <b>I'm still working on it and adding new features. If you have any suggestions or want to help me, feel free to pull request or join my discord server.<b>
+This is a discord bot for your fivem server. It has a lot of features and is easy to setup. It is made for ESX and QB. <b>I'm still working on it and adding new features.</b> If you have any suggestions create an issue on github. If you want to help me, you can open a pull request.
+
+# About the features and bugs
+If you find a bug or want to suggest a new feature, you can open an issue on github. If you want to help me, you can open a pull request. But please don't send me a message on discord for bugs and features. I can't answer all of them. If you want to ask something, you can join my discord server.
 
 [![Discord](https://img.shields.io/discord/720326694271189124?color=blue&label=Discord&logo=discord&logoColor=white)](https://discord.gg/davU2SY)
 
