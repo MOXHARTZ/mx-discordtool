@@ -22,4 +22,5 @@ TypeEnum = {
     UnBan = 117,
     GetUserByName = 118,
     GetUserBySource = 119,
+    GetBanList = 120,
 }

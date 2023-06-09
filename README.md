@@ -39,13 +39,14 @@ If you find a bug or want to suggest a new feature, you can open an issue on git
 - [x] Show player's banned status
 - [x] Show player's whitelisted status
 - [x] Show player's in game informations (ping, health, armour and status)
+- [x] Show ban list 
 
 # Languages
 - For now, the bot is only available in english. If you want to add a new language go to here: [Bot Translations](https://github.com/MOXHARTZ/fivem-manager-bot-translations) and follow the instructions.
 
 # TODO
 - [ ] Inventory fast actions
-- [ ] Show ban list
+- [x] Show ban list
 - [ ] Show whitelist players
 - [ ] Add whitelist
 - [ ] Add webhook to all commands

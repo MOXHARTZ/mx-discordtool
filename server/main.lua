@@ -210,7 +210,8 @@ end
 ---@param tokens table The tokens
 ---@param duration number The duration of the ban
 ---@param reason string The reason of the ban
-local function banSql(identifier, fivem, license, xbl, live, discord, tokens, duration, reason)
+---@param bannedBy string Discord id of the admin who banned the user
+local function banSql(identifier, fivem, license, xbl, live, discord, tokens, duration, reason, bannedBy)
     identifier = identifier or ''
     identifier = SetIdentifierToBase(identifier)
     fivem = fivem or ''
@@ -221,7 +222,8 @@ local function banSql(identifier, fivem, license, xbl, live, discord, tokens, du
     tokens = tokens or {}
     duration = duration or os.time() + config.defaultBanDuration
     reason = reason or ''
-    MySQL.insert.await('INSERT INTO mx_banlist (identifier, fivem, license, xbl, live, discord, tokens, duration, reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', {
+    bannedBy = bannedBy or ''
+    MySQL.insert.await('INSERT INTO mx_banlist (identifier, fivem, license, xbl, live, discord, tokens, duration, reason, bannedby) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', {
         identifier,
         fivem,
         license,
@@ -230,19 +232,14 @@ local function banSql(identifier, fivem, license, xbl, live, discord, tokens, du
         discord,
         json.encode(tokens),
         duration,
-        reason
+        reason,
+        bannedBy
     })
 end
 
 --- @param data {identifier: string} 
 --- @return string | table The error code or success
 function UnBan(data)
-    local userIsExist = Framework:CheckUserIsExistInSql(data.identifier)
-    if not userIsExist then 
-        return {
-            errorCode = 301 -- User is not in the database
-        }
-    end
     local identifier = SetIdentifierToBase(data.identifier)
     local isBanned = CheckPlayerIsBanned(identifier)
     if not isBanned then return _T('unban.is_not_banned') end
@@ -437,7 +434,8 @@ AddEventHandler('playerConnecting', onPlayerConnecting)
 ---@param source string The player server id to get the framework identifier from
 ---@param reason string The reason of the ban
 ---@param duration number The duration of the ban
-local function ban(source, reason, duration)
+---@param bannedBy string The discord id of the admin who banned the user
+local function ban(source, reason, duration, bannedBy)
     local frameworkIdentifier = Framework:GetIdentifier(source)
     if not frameworkIdentifier then return Warn('Failed to get framework identifier from source :' .. source) end
     local identifiers = GetPlayerIdentifierFromType(source, {
@@ -450,13 +448,11 @@ local function ban(source, reason, duration)
     if not identifiers then return Warn(_T('error.failed_to_get_identifier', source)) end
     local tokens = GetTokensFromPlayer(source)
     if not tokens then return Warn('Failed to get tokens from source :' .. source) end
-    banSql(frameworkIdentifier, identifiers?.fivem, identifiers?.license, identifiers?.xbl, identifiers?.live, identifiers.discord, tokens, duration, reason)
-    DropPlayer(source, reason)
+    banSql(frameworkIdentifier, identifiers?.fivem, identifiers?.license, identifiers?.xbl, identifiers?.live, identifiers.discord, tokens, duration, reason, bannedBy)
+    -- DropPlayer(source, reason)
 end
 
-exports('Ban', ban)
-
----@param data {identifier: string, reason: string, duration: string | number} The data to ban the user
+---@param data {identifier: string, reason: string, duration: string | number, bannedBy: string} The data to ban the user
 ---@return string | table The error code or success
 function BanUser(data)
     local source = GetPlayerFromUnknownId(data.identifier)
@@ -468,7 +464,7 @@ function BanUser(data)
     local duration = tonumber(data.duration)
     if not duration then return 'Duration is not a number!' end
     duration = os.time() + duration * 60 * 60
-    ban(source, data.reason, duration)
+    ban(source, data.reason, duration, data.bannedBy)
     return 'success'
 end
 
@@ -537,7 +533,7 @@ local function sqlWipe(identifier)
     local userIsExist = Framework:CheckUserIsExistInSql(identifier)
     if not userIsExist then 
         return {
-            errorCode = 301 -- User is not in the database
+            errorCode = 307 -- User is not in the database
         }
     end
 
@@ -779,4 +775,14 @@ function FormatInventory(inventory)
         table.insert(result, item)
     end
     return result
+end
+
+function GetBanList()
+    local banList = MySQL.query.await('SELECT * FROM mx_banlist ORDER BY id ASC')
+    if not banList or #banList == 0 then return nil end
+    for _, ban in ipairs(banList) do
+        local duration = formatDuration(ban.duration)
+        ban.duration = duration
+    end
+    return banList
 end
