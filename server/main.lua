@@ -449,7 +449,7 @@ local function ban(source, reason, duration, bannedBy)
     local tokens = GetTokensFromPlayer(source)
     if not tokens then return Warn('Failed to get tokens from source :' .. source) end
     banSql(frameworkIdentifier, identifiers?.fivem, identifiers?.license, identifiers?.xbl, identifiers?.live, identifiers.discord, tokens, duration, reason, bannedBy)
-    -- DropPlayer(source, reason)
+    DropPlayer(source, reason)
 end
 
 ---@param data {identifier: string, reason: string, duration: string | number, bannedBy: string} The data to ban the user
