@@ -243,7 +243,7 @@ function UnBan(data)
     local identifier = SetIdentifierToBase(data.identifier)
     local isBanned = CheckPlayerIsBanned(identifier)
     if not isBanned then return _T('unban.is_not_banned') end
-    MySQL.execute.await('DELETE FROM mx_banlist WHERE identifier = ?', {
+    MySQL.query.await('DELETE FROM mx_banlist WHERE identifier = ?', {
         identifier
     })
     return 'success'
@@ -261,7 +261,7 @@ end
 ---@param identifier string
 function RemoveWhitelist(identifier)
     identifier = SetIdentifierToBase(identifier)
-    MySQL.execute.await('DELETE FROM mx_whitelist WHERE identifier = ?', {
+    MySQL.query.await('DELETE FROM mx_whitelist WHERE identifier = ?', {
         identifier
     })
 end
@@ -389,7 +389,7 @@ local function onPlayerConnecting(name, setKickReason, deferrals)
         if checkTokens(tokens, json.decode(ban.tokens)) then banned = true end
         if banned then
             if ban.duration < os.time() then
-                MySQL.execute.await('DELETE FROM mx_banlist WHERE id = ?', {
+                MySQL.query.await('DELETE FROM mx_banlist WHERE id = ?', {
                     ban.id
                 })
                 deferrals.done()
