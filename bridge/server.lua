@@ -1,4 +1,4 @@
--- Referenced: https://github.com/overextended/ox_inventory/blob/main/modules/bridge/server.lua
+-- Credit: https://github.com/overextended/ox_inventory/blob/main/modules/bridge/server.lua
 
 local existQb = GetResourceState('qb-core') == 'started'
 local existEsx = GetResourceState('es_extended') == 'started'
