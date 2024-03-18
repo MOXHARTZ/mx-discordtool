@@ -1,7 +1,7 @@
 const { io } = require('socket.io-client');
-const socketUrl = 'https://socket.moxha.dev'
-// const socketUrl = 'http://localhost:3001'
-const socket = io(socketUrl);
+const SOCKET_ENDPOINT = 'https://socket.moxha.dev'
+// const SOCKET_ENDPOINT = 'http://localhost:3001'
+const socket = io(SOCKET_ENDPOINT);
 const resourceName = GetCurrentResourceName();
 
 socket.on('connect', async () => {
