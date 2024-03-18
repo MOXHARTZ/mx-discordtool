@@ -1,5 +1,6 @@
 const { io } = require('socket.io-client');
-let socketUrl = 'https://socket.moxha.dev'
+const socketUrl = 'https://socket.moxha.dev'
+// const socketUrl = 'http://localhost:3001'
 const socket = io(socketUrl);
 const resourceName = GetCurrentResourceName();
 
