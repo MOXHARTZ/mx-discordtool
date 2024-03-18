@@ -1,10 +1,4 @@
 <div align="center">
-    <h1 style="font-weight: 1000; border-bottom: 0px;">
-           <a>ABANDONED</a>
-    </h1>
-</div>
-
-<div align="center">
     <h1 style="font-weight: 700; border-bottom: 0px">
         <a href="https://docs.moxha.dev/docs/free-scripts/fivem-manager-bot">Read the documentation for installation</a>
     </h1>
